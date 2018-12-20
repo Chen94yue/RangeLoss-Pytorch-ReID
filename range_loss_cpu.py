@@ -106,6 +106,13 @@ class RangeLoss(nn.Module):
         return torch.sum(intra_distance)
 
     def _range_loss(self, features, targets):
+        """
+        Args:
+            inputs: prediction matrix (before softmax) with shape (batch_size, num_classes)
+            targets: ground truth labels with shape (batch_size)
+        Return:
+             range_loss
+        """
         inter_class_loss = self._inter_class_loss(features, targets)
         intra_class_loss = self._intra_class_loss(features, targets)
         range_loss = self.alpha * inter_class_loss + self.beta * intra_class_loss
