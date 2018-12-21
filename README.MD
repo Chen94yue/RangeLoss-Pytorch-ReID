@@ -1,6 +1,6 @@
 # RangeLoss Pytorch
 * This is a Pytorch reproduction of Range Loss, which is proposed in paper 《Range Loss for Deep Face Recognition with Long-Tailed Training Data》
-* Still in testing process of ReID application. Welcome to point out the problems
+* ###Still in testing process of ReID application. Welcome to point out the problems
 
 ## Code Environment Description
 Our code execution environment is:
