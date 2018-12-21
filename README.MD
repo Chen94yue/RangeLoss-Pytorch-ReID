@@ -10,8 +10,7 @@ Our code execution environment is:
 
 ## Code structure description
 ```
-|--range_loss_cuda.py
-|--range_loss_cpu.py
+|--range_loss.py
 |--README.md
 ```
 ## To do list

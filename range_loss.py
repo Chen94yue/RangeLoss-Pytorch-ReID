@@ -63,10 +63,14 @@ class RangeLoss(nn.Module):
          Return: 
             center_features: center matrix (before softmax) with shape (center_number, num_classes)
         """
-        unique_labels = targets.unique()
+        if self.use_gpu:
+            unique_labels = targets.cpu().unique().cuda()
+        else:
+            unique_labels = targets.unique()
+
         center_features = torch.zeros(unique_labels.size()[0], features.size()[1])
-        # if self.use_gpu:
-        #     center_features.cuda()
+        if self.use_gpu:
+            center_features.cuda()
         for i in range(unique_labels.size()[0]):
             label = unique_labels[i]
             same_class_features = features[targets == label]
@@ -94,11 +98,15 @@ class RangeLoss(nn.Module):
          Return: 
             intra_class_loss
         """
-        unique_labels = targets.unique()
+        if self.use_gpu:
+            unique_labels = targets.cpu().unique().cuda()
+        else:
+            unique_labels = targets.unique()
+
         same_class_distances = torch.zeros(unique_labels.size()[0], self.k)
         intra_distance = torch.zeros(unique_labels.size()[0])
-        # if self.use_gpu:
-        #     same_class_distances.cuda()
+        if self.use_gpu:
+            same_class_distances.cuda()
         for i in range(unique_labels.size()[0]):
             label = unique_labels[i]
             same_class_distances[i, :] = self._compute_top_k(features[targets == label])
@@ -126,16 +134,21 @@ class RangeLoss(nn.Module):
         Return:
              range_loss
         """
-        # if self.use_gpu:
-        #     targets = targets.cuda()
+        if self.use_gpu:
+            targets = targets.cuda()
 
         range_loss = self._range_loss(features, targets)
         return range_loss
 
 
 if __name__ == '__main__':
-        range_loss = RangeLoss()
-        features = torch.rand(16, 2048)
-        targets = torch.Tensor([0,1,2,3,2,3,1,4,5,3,2,1,0,0,5,4])
-        loss = range_loss(features, targets)
-        print(loss)
+    use_gpu = False
+    range_loss = RangeLoss(use_gpu=use_gpu)
+    features = torch.rand(16, 2048)
+    targets = torch.Tensor([0, 1, 2, 3, 2, 3, 1, 4, 5, 3, 2, 1, 0, 0, 5, 4])
+    if use_gpu:
+        features = torch.rand(16, 2048).cuda()
+        targets = torch.Tensor([0, 1, 2, 3, 2, 3, 1, 4, 5, 3, 2, 1, 0, 0, 5, 4]).cuda()
+
+    loss = range_loss(features, targets)
+    print(loss)
