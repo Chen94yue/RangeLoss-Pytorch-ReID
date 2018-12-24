@@ -55,89 +55,113 @@ class RangeLoss(nn.Module):
         dist_array = dist_array[torch.gt(dist_array, 0)]
         return dist_array.min()
 
-    def _calculate_centers(self, features, targets):
+    def _calculate_centers(self, features, targets, ordered=True, ids_per_batch=32, imgs_per_id=4):
         """
          Args:
             features: prediction matrix (before softmax) with shape (batch_size, num_classes)
             targets: ground truth labels with shape (batch_size)
+            ordered: bool type. If the train data per batch are formed as p*k, where p is the num of ids per batch and k is the num of images per id.
+            ids_per_batch: num of different ids per batch
+            imgs_per_id: num of images per id
          Return: 
             center_features: center matrix (before softmax) with shape (center_number, num_classes)
         """
         if self.use_gpu:
-            unique_labels = targets.cpu().unique().cuda()
+            if ordered:
+                assert targets.size(0) == ids_per_batch * imgs_per_id, "batchsize is not equal to ids_per_batch * imgs_per_id"
+                unique_labels = targets[0:targets.size(0):imgs_per_id]
+            else:
+                unique_labels = targets.cpu().unique().cuda()
         else:
             unique_labels = targets.unique()
 
-        center_features = torch.zeros(unique_labels.size()[0], features.size()[1])
+        center_features = torch.zeros(unique_labels.size(0), features.size(1))
         if self.use_gpu:
             center_features.cuda()
-        for i in range(unique_labels.size()[0]):
+        for i in range(unique_labels.size(0)):
             label = unique_labels[i]
             same_class_features = features[targets == label]
             center_features[i] = same_class_features.mean(dim=0)
         return center_features
 
-    def _inter_class_loss(self, features, targets):
+    def _inter_class_loss(self, features, targets, ordered=True, ids_per_batch=32, imgs_per_id=4):
         """
          Args:
             features: prediction matrix (before softmax) with shape (batch_size, num_classes)
             targets: ground truth labels with shape (batch_size)
             margin: inter class ringe loss margin
+            ordered: bool type. If the train data per batch are formed as p*k, where p is the num of ids per batch and k is the num of images per id.
+            ids_per_batch: num of different ids per batch
+            imgs_per_id: num of images per id
          Return: 
             inter_class_loss
         """
-        center_features = self._calculate_centers(features, targets)
+        center_features = self._calculate_centers(features, targets, ordered, ids_per_batch, imgs_per_id)
         min_inter_class_center_distance = self._compute_min_dist(center_features)
         return torch.max(self.margin - min_inter_class_center_distance, 0)[0]
 
-    def _intra_class_loss(self, features, targets):
+    def _intra_class_loss(self, features, targets, ordered=True, ids_per_batch=32, imgs_per_id=4):
         """
          Args:
             features: prediction matrix (before softmax) with shape (batch_size, num_classes)
             targets: ground truth labels with shape (batch_size)
+            ordered: bool type. If the train data per batch are formed as p*k, where p is the num of ids per batch and k is the num of images per id.
+            ids_per_batch: num of different ids per batch
+            imgs_per_id: num of images per id
          Return: 
             intra_class_loss
         """
         if self.use_gpu:
-            unique_labels = targets.cpu().unique().cuda()
+            if ordered:
+                assert targets.size(0) == ids_per_batch * imgs_per_id, "batchsize is not equal to ids_per_batch * imgs_per_id"
+                unique_labels = targets[0:targets.size(0):imgs_per_id]
+            else:
+                unique_labels = targets.cpu().unique().cuda()
         else:
             unique_labels = targets.unique()
 
-        same_class_distances = torch.zeros(unique_labels.size()[0], self.k)
-        intra_distance = torch.zeros(unique_labels.size()[0])
+        same_class_distances = torch.zeros(unique_labels.size(0), self.k)
+        intra_distance = torch.zeros(unique_labels.size(0))
         if self.use_gpu:
             same_class_distances.cuda()
-        for i in range(unique_labels.size()[0]):
+        for i in range(unique_labels.size(0)):
             label = unique_labels[i]
             same_class_distances[i, :] = self._compute_top_k(features[targets == label])
             intra_distance[i] = self.k / torch.sum(self._compute_top_k(features[targets == label]))
         return torch.sum(intra_distance)
 
-    def _range_loss(self, features, targets):
+    def _range_loss(self, features, targets, ordered=True, ids_per_batch=32, imgs_per_id=4):
         """
         Args:
             inputs: prediction matrix (before softmax) with shape (batch_size, num_classes)
             targets: ground truth labels with shape (batch_size)
+            ordered: bool type. If the train data per batch are formed as p*k, where p is the num of ids per batch and k is the num of images per id.
+            ids_per_batch: num of different ids per batch
+            imgs_per_id: num of images per id
         Return:
              range_loss
         """
-        inter_class_loss = self._inter_class_loss(features, targets)
-        intra_class_loss = self._intra_class_loss(features, targets)
+        inter_class_loss = self._inter_class_loss(features, targets, ordered, ids_per_batch, imgs_per_id)
+        intra_class_loss = self._intra_class_loss(features, targets, ordered, ids_per_batch, imgs_per_id)
         range_loss = self.alpha * inter_class_loss + self.beta * intra_class_loss
         return range_loss
 
-    def forward(self, features, targets):
+    def forward(self, features, targets, ordered=True, ids_per_batch=32, imgs_per_id=4):
         """
         Args:
             inputs: prediction matrix (before softmax) with shape (batch_size, num_classes)
             targets: ground truth labels with shape (batch_size)
+            ordered: bool type. If the train data per batch are formed as p*k, where p is the num of ids per batch and k is the num of images per id.
+            ids_per_batch: num of different ids per batch
+            imgs_per_id: num of images per id
         Return:
              range_loss
         """
+        assert features.size(0) == targets.size(0), "features.size(0) is not equal to targets.size(0)"
         if self.use_gpu:
             targets = targets.cuda()
 
-        range_loss = self._range_loss(features, targets)
+        range_loss = self._range_loss(features, targets, ordered, ids_per_batch, imgs_per_id)
         return range_loss
 
 
