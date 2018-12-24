@@ -73,7 +73,11 @@ class RangeLoss(nn.Module):
             else:
                 unique_labels = targets.cpu().unique().cuda()
         else:
-            unique_labels = targets.unique()
+            if ordered:
+                assert targets.size(0) == ids_per_batch * imgs_per_id, "batchsize is not equal to ids_per_batch * imgs_per_id"
+                unique_labels = targets[0:targets.size(0):imgs_per_id]
+            else:
+                unique_labels = targets.unique()
 
         center_features = torch.zeros(unique_labels.size(0), features.size(1))
         if self.use_gpu:
@@ -118,7 +122,11 @@ class RangeLoss(nn.Module):
             else:
                 unique_labels = targets.cpu().unique().cuda()
         else:
-            unique_labels = targets.unique()
+            if ordered:
+                assert targets.size(0) == ids_per_batch * imgs_per_id, "batchsize is not equal to ids_per_batch * imgs_per_id"
+                unique_labels = targets[0:targets.size(0):imgs_per_id]
+            else:
+                unique_labels = targets.unique()
 
         same_class_distances = torch.zeros(unique_labels.size(0), self.k)
         intra_distance = torch.zeros(unique_labels.size(0))
@@ -169,10 +177,10 @@ if __name__ == '__main__':
     use_gpu = False
     range_loss = RangeLoss(use_gpu=use_gpu)
     features = torch.rand(16, 2048)
-    targets = torch.Tensor([0, 1, 2, 3, 2, 3, 1, 4, 5, 3, 2, 1, 0, 0, 5, 4])
+    targets = torch.Tensor([0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3])
     if use_gpu:
         features = torch.rand(16, 2048).cuda()
-        targets = torch.Tensor([0, 1, 2, 3, 2, 3, 1, 4, 5, 3, 2, 1, 0, 0, 5, 4]).cuda()
+        targets = torch.Tensor([0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3]).cuda()
 
-    loss = range_loss(features, targets)
+    loss = range_loss(features, targets, ordered=True, ids_per_batch=4, imgs_per_id=4)
     print(loss)
