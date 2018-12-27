@@ -103,20 +103,24 @@ class RangeLoss(nn.Module):
         """
         if self.use_gpu:
             if ordered:
-                assert targets.size(0) == ids_per_batch * imgs_per_id, "batchsize is not equal to ids_per_batch * imgs_per_id"
-                unique_labels = targets[0:targets.size(0):imgs_per_id]
+                if targets.size(0) == ids_per_batch * imgs_per_id:
+                    unique_labels = targets[0:targets.size(0):imgs_per_id]
+                else:
+                    unique_labels = targets.cpu().unique().cuda()
             else:
                 unique_labels = targets.cpu().unique().cuda()
         else:
             if ordered:
-                assert targets.size(0) == ids_per_batch * imgs_per_id, "batchsize is not equal to ids_per_batch * imgs_per_id"
-                unique_labels = targets[0:targets.size(0):imgs_per_id]
+                if targets.size(0) == ids_per_batch * imgs_per_id:
+                    unique_labels = targets[0:targets.size(0):imgs_per_id]
+                else:
+                    unique_labels = targets.unique()
             else:
                 unique_labels = targets.unique()
-
         center_features = torch.zeros(unique_labels.size(0), features.size(1))
         if self.use_gpu:
-            center_features.cuda()
+            center_features = center_features.cuda()
+
         for i in range(unique_labels.size(0)):
             label = unique_labels[i]
             same_class_features = features[targets == label]
@@ -137,7 +141,7 @@ class RangeLoss(nn.Module):
         """
         center_features = self._calculate_centers(features, targets, ordered, ids_per_batch, imgs_per_id)
         min_inter_class_center_distance = self._compute_min_dist(center_features)
-        return (self.margin - min_inter_class_center_distance).clamp(min=0)
+        return torch.relu(self.margin - min_inter_class_center_distance)
 
     def _intra_class_loss(self, features, targets, ordered=True, ids_per_batch=32, imgs_per_id=4):
         """
@@ -152,20 +156,25 @@ class RangeLoss(nn.Module):
         """
         if self.use_gpu:
             if ordered:
-                assert targets.size(0) == ids_per_batch * imgs_per_id, "batchsize is not equal to ids_per_batch * imgs_per_id"
-                unique_labels = targets[0:targets.size(0):imgs_per_id]
+                if targets.size(0) == ids_per_batch * imgs_per_id:
+                    unique_labels = targets[0:targets.size(0):imgs_per_id]
+                else:
+                    unique_labels = targets.cpu().unique().cuda()
             else:
                 unique_labels = targets.cpu().unique().cuda()
         else:
             if ordered:
-                assert targets.size(0) == ids_per_batch * imgs_per_id, "batchsize is not equal to ids_per_batch * imgs_per_id"
-                unique_labels = targets[0:targets.size(0):imgs_per_id]
+                if targets.size(0) == ids_per_batch * imgs_per_id:
+                    unique_labels = targets[0:targets.size(0):imgs_per_id]
+                else:
+                    unique_labels = targets.unique()
             else:
                 unique_labels = targets.unique()
 
         intra_distance = torch.zeros(unique_labels.size(0))
         if self.use_gpu:
-            intra_distance.cuda()
+            intra_distance = intra_distance.cuda()
+
         for i in range(unique_labels.size(0)):
             label = unique_labels[i]
             same_class_distances = 1.0 / self._compute_top_k(features[targets == label])
