@@ -42,16 +42,18 @@ class RangeLoss(nn.Module):
          Return: 
             top_k largest distances
         """
+	
         dist_array = self._pairwise_distance(features)
         dist_array = dist_array.view(1, -1)
         top_k = dist_array.sort()[0][0, -self.k * 2::2]     # Because there are 2 same value of same feature pair in the dist_array
-
-        '''
+        # print('top k intra class dist:', top_k)
+        
         # reading the codes below can help understand better
-        print(top_k)
+        '''
         dist_array_2 = self._pairwise_distance(features)
         n = features.size(0)
         mask = torch.zeros(n, n)
+	    if self.use_gpu: mask=mask.cuda()
         for i in range(0, n):
             for j in range(i+1, n):
                 mask[i, j] += 1
@@ -71,10 +73,11 @@ class RangeLoss(nn.Module):
             minimum center distance
         """
         '''
-        # reading codes below can help under stand better
+        # reading codes below can help understand better
         dist_array = self._pairwise_distance(center_features)
         n = center_features.size(0)
         mask = torch.zeros(n, n)
+	    if self.use_gpu: mask=mask.cuda()
         for i in range(0, n):
             for j in range(i + 1, n):
                 mask[i, j] += 1
@@ -86,8 +89,7 @@ class RangeLoss(nn.Module):
         '''
         n = center_features.size(0)
         dist_array2 = self._pairwise_distance(center_features)
-        min_inter_class_dist2 = dist_array2.view(1, -1).sort()[0][0][n+1]  # exclude self compare, the first one is the min_inter_class_dist
-        # print(min_inter_class_dist2)
+        min_inter_class_dist2 = dist_array2.view(1, -1).sort()[0][0][n]  # exclude self compare, the first one is the min_inter_class_dist
         return min_inter_class_dist2
 
     def _calculate_centers(self, features, targets, ordered=True, ids_per_batch=32, imgs_per_id=4):
@@ -141,6 +143,7 @@ class RangeLoss(nn.Module):
         """
         center_features = self._calculate_centers(features, targets, ordered, ids_per_batch, imgs_per_id)
         min_inter_class_center_distance = self._compute_min_dist(center_features)
+        # print('min_inter_class_center_dist:', min_inter_class_center_distance)
         return torch.relu(self.margin - min_inter_class_center_distance)
 
     def _intra_class_loss(self, features, targets, ordered=True, ids_per_batch=32, imgs_per_id=4):
@@ -179,6 +182,7 @@ class RangeLoss(nn.Module):
             label = unique_labels[i]
             same_class_distances = 1.0 / self._compute_top_k(features[targets == label])
             intra_distance[i] = self.k / torch.sum(same_class_distances)
+        # print('intra_distace:', intra_distance)
         return torch.sum(intra_distance)
 
     def _range_loss(self, features, targets, ordered=True, ids_per_batch=32, imgs_per_id=4):
@@ -194,8 +198,8 @@ class RangeLoss(nn.Module):
         """
         inter_class_loss = self._inter_class_loss(features, targets, ordered, ids_per_batch, imgs_per_id)
         intra_class_loss = self._intra_class_loss(features, targets, ordered, ids_per_batch, imgs_per_id)
-        range_loss = self.alpha * inter_class_loss + self.beta * intra_class_loss
-        return range_loss
+        range_loss = self.alpha * intra_class_loss + self.beta * inter_class_loss
+        return inter_class_loss, intra_class_loss, range_loss
 
     def forward(self, features, targets):
         """
@@ -213,8 +217,8 @@ class RangeLoss(nn.Module):
             features = features.cuda()
             targets = targets.cuda()
 
-        range_loss = self._range_loss(features, targets, self.ordered, self.ids_per_batch, self.imgs_per_id)
-        return range_loss
+        inter_class_loss, intra_class_loss, range_loss = self._range_loss(features, targets, self.ordered, self.ids_per_batch, self.imgs_per_id)
+        return inter_class_loss, intra_class_loss, range_loss
 
 
 if __name__ == '__main__':
