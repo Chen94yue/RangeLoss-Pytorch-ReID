@@ -1,6 +1,6 @@
 # RangeLoss Pytorch
-### Still in testing process of ReID application. Welcome to point out the problems.
 * This is a Pytorch reproduction of Range Loss, which is proposed in paper *《Range Loss for Deep Face Recognition with Long-Tailed Training Data》*
+* There is  also a version of RangeLoss for local feature of AlignedReID++, which is proposed in paper *《Alignedreid＋+: Dynamically Matching Local Information for Person Re-Identification》*
 
 ## Code Environment Description
 Our code execution environment is:
